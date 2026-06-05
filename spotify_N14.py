@@ -135,6 +135,23 @@ spark.sql("""
          ORDER BY a.genre, delta_vs_genre DESC
          """).show(9, truncate=False)
 
+# Q3: Quantile Thresholds for Pop and Rap (P50, P75, P90)
+print("\n [Q3] SUCCESS THRESHOLDS BY PERCENTILE (Pop & Rap)")
+spark.sql("""
+         WITH filtered_genres AS (SELECT genre, popularity
+                                  FROM tracks_deduplicated
+                                  WHERE genre IN ('Pop', 'Rap')
+                                    AND popularity IS NOT NULL)
+         SELECT genre,
+                ROUND(PERCENTILE_APPROX(popularity, 0.50), 2) AS P50,
+                ROUND(PERCENTILE_APPROX(popularity, 0.75), 2) AS P75,
+                ROUND(PERCENTILE_APPROX(popularity, 0.90), 2) AS P90,
+                COUNT(*)                                      AS track_count
+         FROM filtered_genres
+         GROUP BY genre
+         ORDER BY genre
+         """).show(truncate=False)
+
 spark.stop()
 
 

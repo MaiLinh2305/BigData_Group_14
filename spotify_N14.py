@@ -49,6 +49,23 @@ print(f"Total raw records loaded: {raw_count}")
 df.printSchema()
 
 
+# Data Preprocessing: Deduplication by track_id
+window_spec = Window.partitionBy("track_id").orderBy(col("genre").asc())
+df_dedup = df.withColumn("rn", row_number().over(window_spec)) \
+    .filter(col("rn") == 1) \
+    .drop("rn")
+
+# Count unique records
+unique_count = df_dedup.count()
+print(f"Total unique tracks identified: {unique_count}")
+
+df_dedup.createOrReplaceTempView("tracks_deduplicated")
+
+print("\n" + "=" * 80)
+print("SPOTIFY MARKET INTELLIGENCE BATCH REPORT")
+print(f"DATA SOURCE: HDFS | TOTAL TRACKS: {unique_count}")
+print("=" * 80)
+
 spark.stop()
 
 

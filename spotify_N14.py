@@ -66,6 +66,34 @@ print("SPOTIFY MARKET INTELLIGENCE BATCH REPORT")
 print(f"DATA SOURCE: HDFS | TOTAL TRACKS: {unique_count}")
 print("=" * 80)
 
+# Q1: Market Opportunity
+print("\n[Q1] MARKET OPPORTUNITY ANALYSIS")
+spark.sql("""
+          WITH genre_metrics AS (SELECT genre,
+                                        COUNT(*)                     AS track_count,
+                                        ROUND(AVG(popularity), 2)    AS avg_popularity,
+                                        ROUND(STDDEV(popularity), 2) AS popularity_stddev
+                                 FROM tracks_deduplicated
+                                 WHERE genre IS NOT NULL
+                                   AND TRIM(genre) != '' AND popularity IS NOT NULL
+          GROUP BY genre
+          HAVING COUNT (*) >= 100
+             AND AVG (popularity)
+               > 30
+              )
+               , market_total AS (
+          SELECT SUM (track_count) AS total_tracks
+          FROM genre_metrics)
+          SELECT genre,
+                 track_count,
+                 avg_popularity,
+                 ROUND(avg_popularity * (1 - (track_count * 1.0 / NULLIF(total_tracks, 0))), 2) AS opportunity_score
+          FROM genre_metrics,
+               market_total
+          WHERE track_count < (SELECT AVG(track_count) FROM genre_metrics)
+          ORDER BY opportunity_score DESC
+          """).show(10, truncate=False)
+
 spark.stop()
 
 

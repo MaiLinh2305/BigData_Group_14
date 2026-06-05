@@ -151,6 +151,101 @@ spark.sql("""
          GROUP BY genre
          ORDER BY genre
          """).show(truncate=False)
+# Q4: Audio Feature Analysis: Hit (P90) vs Non-Hit for Pop and Rap
+# ============================================================================
+print("\n[Q4] KEY AUDIO FEATURES: HIT (P90) vs NON-HIT COMPARISON")
+spark.sql("""
+         WITH hit_threshold AS (SELECT 'Pop' AS genre, 77 AS hit_threshold
+                                UNION ALL
+                                SELECT 'Rap', 73),
+              feature_comparison AS (SELECT t.genre,
+                                            CASE
+                                                WHEN t.genre = 'Pop' AND t.popularity >= 77 THEN 'Hit'
+                                                WHEN t.genre = 'Rap' AND t.popularity >= 73 THEN 'Hit'
+                                                ELSE 'Non-Hit'
+                                                END                           AS hit_status,
+                                            ROUND(AVG(t.acousticness), 4)     AS acousticness,
+                                            ROUND(AVG(t.danceability), 4)     AS danceability,
+                                            ROUND(AVG(t.duration_ms), 2)      AS duration_ms,
+                                            ROUND(AVG(t.energy), 4)           AS energy,
+                                            ROUND(AVG(t.instrumentalness), 6) AS instrumentalness,
+                                            ROUND(AVG(t.liveness), 4)         AS liveness,
+                                            ROUND(AVG(t.loudness), 2)         AS loudness,
+                                            ROUND(AVG(t.speechiness), 6)      AS speechiness,
+                                            ROUND(AVG(t.tempo), 2)            AS tempo,
+                                            ROUND(AVG(t.valence), 4)          AS valence
+                                     FROM tracks_deduplicated t
+                                     WHERE t.genre IN ('Pop', 'Rap')
+                                       AND t.popularity IS NOT NULL
+                                     GROUP BY t.genre, hit_status)
+         SELECT genre,
+                hit_status,
+                acousticness,
+                danceability,
+                duration_ms,
+                energy,
+                instrumentalness,
+                liveness,
+                loudness,
+                speechiness,
+                tempo,
+                valence
+         FROM feature_comparison
+         ORDER BY genre, hit_status DESC
+         """).show(truncate=False)
+
+
+print("\n [Q4] DIFFERENCE (HIT - NON-HIT) – INDICATOR OF KEY FEATURES (P90 THRESHOLD)")
+spark.sql("""
+         WITH hit_threshold AS (SELECT 'Pop' AS genre, 77 AS hit_threshold
+                                UNION ALL
+                                SELECT 'Rap', 73),
+              feature_avg AS (SELECT t.genre,
+                                     CASE
+                                         WHEN t.genre = 'Pop' AND t.popularity >= 77 THEN 'Hit'
+                                         WHEN t.genre = 'Rap' AND t.popularity >= 73 THEN 'Hit'
+                                         ELSE 'Non-Hit'
+                                         END                 AS hit_status,
+                                     AVG(t.acousticness)     AS acousticness,
+                                     AVG(t.danceability)     AS danceability,
+                                     AVG(t.duration_ms)      AS duration_ms,
+                                     AVG(t.energy)           AS energy,
+                                     AVG(t.instrumentalness) AS instrumentalness,
+                                     AVG(t.liveness)         AS liveness,
+                                     AVG(t.loudness)         AS loudness,
+                                     AVG(t.speechiness)      AS speechiness,
+                                     AVG(t.tempo)            AS tempo,
+                                     AVG(t.valence)          AS valence
+                              FROM tracks_deduplicated t
+                              WHERE t.genre IN ('Pop', 'Rap')
+                                AND t.popularity IS NOT NULL
+                              GROUP BY t.genre, hit_status)
+         SELECT genre,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN acousticness END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN acousticness END), 4)     AS diff_acousticness,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN danceability END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN danceability END), 4)     AS diff_danceability,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN duration_ms END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN duration_ms END), 2)      AS diff_duration_ms,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN energy END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN energy END), 4)           AS diff_energy,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN instrumentalness END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN instrumentalness END), 6) AS diff_instrumentalness,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN liveness END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN liveness END), 4)         AS diff_liveness,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN loudness END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN loudness END), 2)         AS diff_loudness,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN speechiness END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN speechiness END), 6)      AS diff_speechiness,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN tempo END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN tempo END), 2)            AS diff_tempo,
+                ROUND(AVG(CASE WHEN hit_status = 'Hit' THEN valence END) -
+                      AVG(CASE WHEN hit_status = 'Non-Hit' THEN valence END), 4)          AS diff_valence
+         FROM feature_avg
+         GROUP BY genre
+         ORDER BY genre
+         """).show(truncate=False)
+
 
 spark.stop()
 

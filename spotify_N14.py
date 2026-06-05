@@ -93,6 +93,47 @@ spark.sql("""
           WHERE track_count < (SELECT AVG(track_count) FROM genre_metrics)
           ORDER BY opportunity_score DESC
           """).show(10, truncate=False)
+# Q2: Market Benchmark
+print("\n[Q2] TOP PERFORMING TRACKS IN TOP GENRES")
+spark.sql("""
+         WITH genre_avg AS (SELECT genre, AVG(popularity) AS genre_avg_pop
+                            FROM tracks_deduplicated
+                            WHERE popularity IS NOT NULL
+                              AND genre IS NOT NULL
+                              AND genre IN ('Pop', 'Rock', 'Rap')
+                            GROUP BY genre
+                            HAVING COUNT(*) >= 500
+                               AND AVG(popularity) > 35),
+              artist_stats AS (SELECT genre,
+                                      TRIM(track_name)  AS track_name,
+                                      TRIM(artist_name) AS artist_name,
+                                      AVG(popularity)   AS track_avg_pop,
+                                      COUNT(*)          AS total_tracks,
+                                      ROW_NUMBER()         OVER (
+             PARTITION BY genre
+             ORDER BY AVG(popularity) DESC
+         ) AS rank_in_genre
+                               FROM tracks_deduplicated
+                               WHERE popularity IS NOT NULL
+                                 AND artist_name IS NOT NULL
+                                 AND TRIM(artist_name) != ''
+             AND genre IS NOT NULL
+             AND genre IN ('Pop', 'Rock', 'Rap')
+         GROUP BY genre, TRIM (track_name), TRIM (artist_name)
+         HAVING COUNT (*) >= 1
+             )
+         SELECT a.genre,
+                a.track_name,
+                a.artist_name,
+                ROUND(a.track_avg_pop, 2)                   AS track_popularity,
+                ROUND(g.genre_avg_pop, 2)                   AS genre_avg,
+                ROUND(a.track_avg_pop - g.genre_avg_pop, 2) AS delta_vs_genre
+         FROM artist_stats a
+                  JOIN genre_avg g
+                       ON a.genre = g.genre
+         WHERE a.rank_in_genre <= 3
+         ORDER BY a.genre, delta_vs_genre DESC
+         """).show(9, truncate=False)
 
 spark.stop()
 

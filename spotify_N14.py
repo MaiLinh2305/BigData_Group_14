@@ -194,7 +194,6 @@ spark.sql("""
          ORDER BY genre, hit_status DESC
          """).show(truncate=False)
 
-
 print("\n [Q4] DIFFERENCE (HIT - NON-HIT) – INDICATOR OF KEY FEATURES (P90 THRESHOLD)")
 spark.sql("""
          WITH hit_threshold AS (SELECT 'Pop' AS genre, 77 AS hit_threshold
@@ -246,6 +245,75 @@ spark.sql("""
          ORDER BY genre
          """).show(truncate=False)
 
+# ============================================================================
+# Q5: Mood Analysis – Average Popularity by Emotional Quadrant (Pop & Rap)
+# ============================================================================
+print("\n [Q5] MOOD ANALYSIS: AVERAGE POPULARITY BY ENERGY & VALENCE")
+
+spark.sql("""
+         WITH mood_classification AS (SELECT genre,
+                                             popularity,
+                                             energy,
+                                             valence,
+                                             CASE
+                                                 WHEN energy >= 0.5 AND valence >= 0.5 THEN 'HAPPY-ENERGETIC'
+                                                 WHEN energy >= 0.5 AND valence < 0.5 THEN 'DARK-ENERGETIC'
+                                                 WHEN energy < 0.5 AND valence >= 0.5 THEN 'CHILL-HAPPY'
+                                                 WHEN energy < 0.5 AND valence < 0.5 THEN 'SAD-CHILL'
+                                                 ELSE 'UNCLASSIFIED'
+                                                 END AS mood
+                                      FROM tracks_deduplicated
+                                      WHERE genre IN ('Pop', 'Rap')
+                                        AND energy IS NOT NULL
+                                        AND valence IS NOT NULL
+                                        AND popularity IS NOT NULL)
+         SELECT genre,
+                mood,
+                ROUND(AVG(popularity), 2) AS avg_popularity,
+                COUNT(*)                  AS track_count
+         FROM mood_classification
+         WHERE mood != 'UNCLASSIFIED'
+         GROUP BY genre, mood
+         ORDER BY genre,
+             CASE mood
+             WHEN 'HAPPY-ENERGETIC' THEN 1
+             WHEN 'DARK-ENERGETIC' THEN 2
+             WHEN 'CHILL-HAPPY' THEN 3
+             WHEN 'SAD-CHILL' THEN 4
+         END
+         """).show(truncate=False)
+
+print("\n [Q5] MOST SUCCESSFUL MOOD PER GENRE")
+spark.sql("""
+         WITH mood_classification AS (SELECT genre,
+                                             popularity,
+                                             energy,
+                                             valence,
+                                             CASE
+                                                 WHEN energy >= 0.5 AND valence >= 0.5 THEN 'HAPPY-ENERGETIC'
+                                                 WHEN energy >= 0.5 AND valence < 0.5 THEN 'DARK-ENERGETIC'
+                                                 WHEN energy < 0.5 AND valence >= 0.5 THEN 'CHILL-HAPPY'
+                                                 WHEN energy < 0.5 AND valence < 0.5 THEN 'SAD-CHILL'
+                                                 END AS mood
+                                      FROM tracks_deduplicated
+                                      WHERE genre IN ('Pop', 'Rap')
+                                        AND energy IS NOT NULL
+                                        AND valence IS NOT NULL
+                                        AND popularity IS NOT NULL),
+              mood_avg AS (SELECT genre, mood, AVG(popularity) AS avg_pop, COUNT(*) AS cnt
+                           FROM mood_classification
+                           GROUP BY genre, mood),
+              ranked AS (SELECT genre,
+                                mood,
+                                ROUND(avg_pop, 2) AS avg_popularity,
+                                cnt,
+                                ROW_NUMBER()         OVER (PARTITION BY genre ORDER BY avg_pop DESC) AS rank
+                         FROM mood_avg)
+         SELECT genre, mood, avg_popularity, cnt
+         FROM ranked
+         WHERE rank = 1
+         ORDER BY genre
+         """).show(truncate=False)
 
 spark.stop()
 

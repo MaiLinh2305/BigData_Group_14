@@ -1,41 +1,38 @@
 # Q6: Undiscovered high-potential artists (top 5 Pop and top 5 Rap)
-print("\n [Q6] UNDISCOVERED HIGH-POTENTIAL ARTISTS (TOP 5 POP & TOP 5 RAP)")
+print("\n[Q6] EMERGING ARTISTS WITH HIGH POTENTIAL (FEW TRACKS, HIGH AVG POPULARITY)")
+
 spark.sql("""
-          WITH artist_stats AS (SELECT TRIM(artist_name)         AS artist_name,
-                                       genre,
-                                       COUNT(*)                  AS num_tracks,
-                                       ROUND(AVG(popularity), 2) AS avg_popularity,
-                                       MAX(popularity)           AS max_popularity,
-                                       ROW_NUMBER()                 OVER (PARTITION BY genre ORDER BY AVG(popularity) DESC, COUNT(*) ASC) AS rank_in_genre
-                                FROM tracks_deduplicated
-                                WHERE genre IN ('Pop', 'Rap')
-                                  AND artist_name IS NOT NULL
-                                  AND TRIM(artist_name) != ''
-              AND popularity IS NOT NULL
-          GROUP BY TRIM (artist_name), genre
-          HAVING COUNT (*) BETWEEN 1
-             AND 5
-             AND AVG (popularity) >= 60
-              )
-               , genre_p90 AS (
-          SELECT genre, PERCENTILE_APPROX(popularity, 0.90) AS p90_threshold
-          FROM tracks_deduplicated
-          WHERE genre IN ('Pop', 'Rap')
-          GROUP BY genre
-              )
-          SELECT a.artist_name,
-                 a.genre,
-                 a.num_tracks,
-                 a.avg_popularity,
-                 a.max_popularity,
-                 ROUND(g.p90_threshold, 2)                                                          AS genre_p90,
-                 CASE WHEN a.max_popularity >= g.p90_threshold THEN 'Has Hit' ELSE 'No Hit Yet' END AS hit_status
-          FROM artist_stats a
-                   JOIN genre_p90 g ON a.genre = g.genre
-          WHERE a.max_popularity < g.p90_threshold
-            AND a.rank_in_genre <= 5
-          ORDER BY a.genre, a.rank_in_genre
-          """).show(truncate=False)
+WITH artist_stats AS (
+    SELECT
+        TRIM(artist_name) AS artist_name,
+        genre,
+        COUNT(*) AS track_count,
+        ROUND(AVG(popularity), 2) AS avg_popularity,
+        ROUND(MAX(popularity), 2) AS peak_popularity,
+        ROW_NUMBER() OVER (
+            PARTITION BY genre
+            ORDER BY AVG(popularity) DESC, COUNT(*) ASC
+        ) AS rank_in_genre
+    FROM tracks_deduplicated
+    WHERE genre IN ('Pop', 'Rap')
+          AND artist_name IS NOT NULL
+          AND TRIM(artist_name) <> ''
+          AND popularity IS NOT NULL
+    GROUP BY TRIM(artist_name), genre
+    HAVING COUNT(*) BETWEEN 1 AND 5
+           AND AVG(popularity) >= 60
+)
+
+SELECT
+    artist_name,
+    genre,
+    track_count,
+    avg_popularity,
+    peak_popularity
+FROM artist_stats
+WHERE rank_in_genre <= 2
+ORDER BY genre, rank_in_genre
+""").show(truncate=False)
 
 # Q7: Edge effect – comparing almost-hit (P75 to P90) vs real hit (>=P90)
 print("\n[Q9] EDGE EFFECT: ALMOST-HIT vs REAL HIT (POP & RAP)")

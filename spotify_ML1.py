@@ -61,7 +61,7 @@ df_target.groupBy("genre").count().orderBy("genre").show()
 # Cast numeric columns
 numeric_cols = [
    "danceability", "energy", "loudness", "tempo",
-   "speechiness", "valence", "duration_ms", "popularity",
+   "speechiness", "valence", "duration_ms",
    "acousticness", "liveness", "instrumentalness"
 ]
 for c in numeric_cols:

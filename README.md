@@ -29,9 +29,8 @@ The project simulates a real-world music investment scenario where a record labe
 - IDE	PyCharm
 
 📂 Repository Structure
-.
-├── Query_1-5.py            # Spark SQL Queries 1-5
-├── Query_6-10.py           # Spark SQL Queries 6-10
-├── spotify_ML1.py          # Popularity prediction using Spark MLlib
-├── spotify_auto_dashboard.py # Automatic SQL extraction and dashboard generation
-└── README.md
+─ Query_1-5.py            # Spark SQL Queries 1-5
+─ Query_6-10.py           # Spark SQL Queries 6-10
+─ spotify_ML1.py          # Popularity prediction using Spark MLlib
+─ spotify_auto_dashboard.py # Automatic SQL extraction and dashboard generation
+─ README.md
